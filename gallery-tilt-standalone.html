@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gallery Tilt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  /* Layout: yellow DSA header band, then one column: control card (toggle + status), floorplan stage, readout row, footnote. */
+  :root {
+    --bg: #dde2e6;
+    --surface: #fcfcfb;
+    --stage: #eef1f3;
+    --ink: #14171a;
+    --muted: #5b6369;
+    --line: #c3cad0;
+    --brand: #fffa89;
+    --on-brand: #14171a;
+    --accent: #2a7de1;
+    --on-accent: #ffffff;
+    --ok: #12a37f;
+    --warn: #f2a900;
+    --track-off: #aab2b8;
+    --floor: #ebebeb;
+    --wall: #b4bcc2;
+    --wall-edge: #8a949b;
+    --wall-top: #cfd5d9;
+    --door: #e4572e;
+    --plan-ink: #3d454b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171a; --surface: #1d2125; --stage: #0f1215; --ink: #eef0f2; --muted: #9aa3aa; --line: #2e343a;
+      --accent: #5aa0f0; --on-accent: #0b1620; --ok: #2fc9a1; --warn: #f5b93a; --track-off: #4a525a;
+      --floor: #2b3136; --wall: #566069; --wall-edge: #7d8890; --wall-top: #6a757e; --door: #ef7a57; --plan-ink: #b8c0c6;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171a; --surface: #1d2125; --stage: #0f1215; --ink: #eef0f2; --muted: #9aa3aa; --line: #2e343a;
+    --accent: #5aa0f0; --on-accent: #0b1620; --ok: #2fc9a1; --warn: #f5b93a; --track-off: #4a525a;
+    --floor: #2b3136; --wall: #566069; --wall-edge: #7d8890; --wall-top: #6a757e; --door: #ef7a57; --plan-ink: #b8c0c6;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.45;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 24px;
+  }
+  .band { background: var(--brand); color: var(--on-brand); margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))) calc(-1 * max(16px, env(safe-area-inset-right, 0px))); padding: 14px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); }
+  .band-in { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 26px; height: 26px; flex: none; }
+  .band h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: .01em; }
+  .band small { display: block; font-size: 12px; font-weight: 500; opacity: .75; letter-spacing: .06em; text-transform: uppercase; }
+  main { max-width: 860px; margin: 18px auto 0; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .ctl { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .ctl-text { min-width: 0; }
+  .ctl-text b { font-size: 16px; font-weight: 600; display: block; }
+  .ctl-text span { font-family: "Newsreader", Georgia, serif; font-size: 15px; color: var(--muted); }
+  .switch { flex: none; position: relative; width: 58px; height: 34px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; background: var(--track-off); transition: background .2s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform .2s; }
+  .switch[aria-checked="true"] { background: var(--accent); }
+  .switch[aria-checked="true"]::after { transform: translateX(24px); }
+  .switch:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .status { display: flex; align-items: flex-start; gap: 9px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+  .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--track-off); }
+  .dot[data-s="wait"] { background: var(--warn); }
+  .dot[data-s="sensor"] { background: var(--ok); }
+  .dot[data-s="pointer"] { background: var(--accent); }
+  .stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; padding: 8px; }
+  .stage.drag { touch-action: none; cursor: grab; }
+  .stage.drag:active { cursor: grabbing; }
+  .stage svg { display: block; width: 100%; height: auto; max-height: 70vh; user-select: none; -webkit-user-select: none; }
+  .stage-tag { position: absolute; left: 14px; top: 10px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .read { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+  .btn { font: inherit; font-weight: 600; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+  .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .note { font-family: "Newsreader", Georgia, serif; font-size: 14.5px; color: var(--muted); margin: 0; max-width: 65ch; }
+  /* plan */
+  .p-floor { fill: var(--floor); }
+  .p-wall { fill: var(--wall); stroke: var(--wall-edge); stroke-width: .035; stroke-linejoin: round; }
+  .p-top { fill: var(--wall-top); stroke: var(--wall-edge); stroke-width: .035; stroke-linejoin: round; }
+  .p-door { fill: var(--door); fill-opacity: .85; stroke: var(--wall-edge); stroke-width: .035; stroke-linejoin: round; }
+  .p-text { font-family: "Hanken Grotesk", system-ui, sans-serif; fill: var(--plan-ink); font-size: .5px; font-weight: 600; letter-spacing: .04em; }
+  .p-scale { stroke: var(--plan-ink); stroke-width: .07; fill: none; }
+  @media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+</style>
+
+<div class="band"><div class="band-in">
+  <svg class="logo" viewBox="0 0 26 26" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="#e4572e"/><circle cx="19" cy="7" r="5" fill="#2a7de1"/><circle cx="7" cy="19" r="5" fill="#12a37f"/><circle cx="19" cy="19" r="5" fill="#8e44ad"/></svg>
+  <div><small>DSA Gallery</small><h1>Gallery Tilt</h1></div>
+</div></div>
+
+<main>
+  <section class="card" aria-label="Tilt control">
+    <div class="ctl">
+      <div class="ctl-text">
+        <b id="lbl">Tilt parallax</b>
+        <span>Lean your phone or tablet and the walls lean with it. Turning this on asks for motion access.</span>
+      </div>
+      <button class="switch" id="sw" role="switch" aria-checked="false" aria-labelledby="lbl"></button>
+    </div>
+    <div class="status" aria-live="polite"><i class="dot" id="dot" data-s="off"></i><span id="msg">Off. Nothing is requested and no sensors are read.</span></div>
+  </section>
+
+  <section class="stage" id="stage" aria-label="Main Gallery floorplan">
+    <span class="stage-tag">Main Gallery</span>
+    <svg id="plan" viewBox="-3 -4.2 23.7 16.2" role="img" aria-label="Top-down floorplan of the Main Gallery, 17.9 by 9.04 metres">
+      <defs>
+        <linearGradient id="fade" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="var(--floor)" stop-opacity=".95"/>
+          <stop offset="1" stop-color="var(--floor)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g id="world"></g>
+      <g id="scale" transform="translate(-1.4 11.3)">
+        <path class="p-scale" d="M0 0.25 V-0.25 M0 0 H2 M2 0.25 V-0.25"/>
+        <text class="p-text" x="2.4" y="0.18">2 m</text>
+        <text class="p-text" x="19.6" y="0.18" text-anchor="end">17.9 × 9.04 m</text>
+      </g>
+    </svg>
+  </section>
+
+  <div class="row">
+    <span class="read" id="read">Tilt  x 0°  y 0°</span>
+    <button class="btn" id="centre" hidden>Recentre</button>
+  </div>
+
+  <p class="note">Floor-line points stay put (the floor slides a touch the other way) while the wall-top points follow your tilt, scaled by wall depth, so each wall stretches and leans like a model seen from above. Hold the device at a comfortable angle and press Recentre to set that as flat.</p>
+  <p class="note">Some embedded previews block motion sensors. If the toggle falls back to drag, open the page directly on a phone over HTTPS for the real gyroscope.</p>
+</main>
+
+<script>
+(function () {
+  /* ---- floorplan data (metres), from main-gallery v2.svg. Each quad: a,b on the floor line, then c,d on the ceiling line ---- */
+  var W = 17.9, H = 9.04, D = 1.4;
+  var QUADS = [
+    { k: 'wall', p: [[0,0],[6.5,0],[6.5,-D],[-D,-D]] },          // N1 left
+    { k: 'wall', p: [[8.7,0],[W,0],[W+D,-D],[8.7,-D]] },          // N1 right
+    { k: 'open', p: [[6.5,0],[8.7,0],[8.7,-D],[6.5,-D]] },        // doorway (open)
+    { k: 'wall', p: [[0,0],[0,H],[-D,H+D],[-D,-D]] },             // W1
+    { k: 'wall', p: [[0,H],[W,H],[W+D,H+D],[-D,H+D]] },           // S1
+    { k: 'wall', p: [[W,0],[W,H],[W+D,H+D],[W+D,-D]] },           // E1
+    { k: 'door', p: [[16.225,H],[17.775,H],[19.175,H+D],[17.625,H+D]] } // closed door
+  ];
+  var INNER = [[8.1,-2.5],[8.3,-2.5],[8.3,0.5],[8.1,0.5]];       // free-standing wall, seen from above
+
+  var NS = 'http://www.w3.org/2000/svg';
+  var world = document.getElementById('world');
+  function el(tag, cls, parent) { var e = document.createElementNS(NS, tag); if (cls) e.setAttribute('class', cls); (parent || world).appendChild(e); return e; }
+
+  var floor = el('rect', 'p-floor'); floor.setAttribute('width', W); floor.setAttribute('height', H);
+  var quadEls = QUADS.map(function (q) {
+    var e = el('path', q.k === 'door' ? 'p-door' : 'p-wall');
+    if (q.k === 'open') { e.setAttribute('class', 'p-wall'); e.style.fill = 'url(#fade)'; e.style.stroke = 'none'; }
+    return e;
+  });
+  var innerSides = [0,1,2,3].map(function () { return el('path', 'p-wall'); });
+  var innerTop = el('path', 'p-top');
+
+  /* ---- tilt state ---- */
+  var MAXDEG = 30;                       // device degrees that give full lean
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var STRENGTH = reduce ? 0.45 : 1;
+  var LEAN = 0.8 * D;                    // metres the wall tops move at full tilt
+  var SLIDE = 0.3;                       // metres the floor slides the other way
+  var target = { x: 0, y: 0 }, cur = { x: 0, y: 0 }, raf = 0;
+
+  function f(n) { return Math.round(n * 1000) / 1000; }
+  function pathOf(pts) { return 'M' + pts.map(function (p) { return f(p[0]) + ' ' + f(p[1]); }).join(' L') + ' Z'; }
+
+  function draw(tx, ty) {
+    var lx = tx * LEAN * STRENGTH, ly = ty * LEAN * STRENGTH;
+    world.setAttribute('transform', 'translate(' + f(-tx * SLIDE * STRENGTH) + ' ' + f(-ty * SLIDE * STRENGTH) + ')');
+    QUADS.forEach(function (q, i) {
+      var p = q.p;
+      quadEls[i].setAttribute('d', pathOf([p[0], p[1], [p[2][0] + lx, p[2][1] + ly], [p[3][0] + lx, p[3][1] + ly]]));
+    });
+    // inner wall: top face shifts with the lean; only faces turned toward the lean are visible
+    var top = INNER.map(function (p) { return [p[0] + lx, p[1] + ly]; });
+    for (var i = 0; i < 4; i++) {
+      var a = INNER[i], b = INNER[(i + 1) % 4];
+      var nx = b[1] - a[1], ny = -(b[0] - a[0]);       // outward normal (clockwise winding in screen space)
+      var vis = (nx * lx + ny * ly) > 0.0001;
+      innerSides[i].setAttribute('d', vis ? pathOf([a, b, top[(i + 1) % 4], top[i]]) : '');
+    }
+    innerTop.setAttribute('d', pathOf(top));
+    floor.setAttribute('x', 0);
+  }
+
+  function tick() {
+    raf = 0;
+    var k = reduce ? 0.2 : 0.14;
+    cur.x += (target.x - cur.x) * k; cur.y += (target.y - cur.y) * k;
+    var settled = Math.abs(target.x - cur.x) < 0.002 && Math.abs(target.y - cur.y) < 0.002;
+    if (settled) { cur.x = target.x; cur.y = target.y; }
+    draw(cur.x, cur.y);
+    readout();
+    if (!settled) raf = requestAnimationFrame(tick);
+  }
+  function kick() { if (!raf) raf = requestAnimationFrame(tick); }
+  function setTarget(x, y) { target.x = Math.max(-1, Math.min(1, x)); target.y = Math.max(-1, Math.min(1, y)); kick(); }
+
+  /* ---- UI state ---- */
+  var sw = document.getElementById('sw'), dot = document.getElementById('dot'), msg = document.getElementById('msg');
+  var readEl = document.getElementById('read'), centreBtn = document.getElementById('centre'), stage = document.getElementById('stage');
+  var on = false, mode = 'off', gotSensor = false, base = null, waitTimer = 0;
+
+  function sgn(n) { return (n >= 0 ? '+' : '−') + Math.abs(Math.round(n)); }
+  function readout() { readEl.textContent = 'Tilt  x ' + sgn(cur.x * MAXDEG) + '°  y ' + sgn(cur.y * MAXDEG) + '°'; }
+
+  var TEXT = {
+    off: 'Off. Nothing is requested and no sensors are read.',
+    wait: 'Waiting for motion access… approve the prompt if your device shows one.',
+    sensor: 'Gyroscope active. Tilt your device to lean the walls.',
+    pointer: 'No gyroscope data available here. Drag (or hover with a mouse) on the plan to tilt instead.',
+    denied: 'Motion access was declined. Drag on the plan to tilt instead, or reload to be asked again.'
+  };
+  function setMode(m, key) {
+    mode = m;
+    dot.setAttribute('data-s', m === 'denied' ? 'pointer' : m);
+    msg.textContent = TEXT[key || m];
+    centreBtn.hidden = m !== 'sensor';
+    stage.classList.toggle('drag', m === 'pointer' || m === 'denied');
+  }
+
+  /* ---- gyroscope ---- */
+  function onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    if (!gotSensor) { gotSensor = true; clearTimeout(waitTimer); setMode('sensor'); }
+    if (!base) base = { b: e.beta, g: e.gamma };
+    var db = e.beta - base.b, dg = e.gamma - base.g;
+    var ang = (screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0);
+    ang = ((ang % 360) + 360) % 360;
+    var x, y;
+    if (ang === 90) { x = db; y = -dg; }
+    else if (ang === 270) { x = -db; y = dg; }
+    else if (ang === 180) { x = -dg; y = -db; }
+    else { x = dg; y = db; }
+    setTarget(x / MAXDEG, y / MAXDEG);
+  }
+
+  async function enable() {
+    on = true; gotSensor = false; base = null;
+    sw.setAttribute('aria-checked', 'true');
+    setMode('wait');
+    var granted = true;
+    try {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        granted = (await DeviceOrientationEvent.requestPermission()) === 'granted';
+      }
+    } catch (err) { granted = false; }
+    if (!on) return;                       // toggled off while the prompt was open
+    if (!granted) { setMode('denied'); return; }
+    window.addEventListener('deviceorientation', onOrient);
+    clearTimeout(waitTimer);
+    waitTimer = setTimeout(function () { if (on && !gotSensor) setMode('pointer'); }, 1500);
+  }
+
+  function disable() {
+    on = false; gotSensor = false; base = null;
+    clearTimeout(waitTimer);
+    window.removeEventListener('deviceorientation', onOrient);
+    sw.setAttribute('aria-checked', 'false');
+    setMode('off');
+    setTarget(0, 0);
+  }
+
+  sw.addEventListener('click', function () { on ? disable() : enable(); });
+  centreBtn.addEventListener('click', function () { base = null; setTarget(0, 0); });
+
+  /* ---- pointer fallback (mouse hover, or touch drag) ---- */
+  function fromPointer(e) {
+    var r = stage.getBoundingClientRect();
+    setTarget(((e.clientX - r.left) / r.width - 0.5) * 2, ((e.clientY - r.top) / r.height - 0.5) * 2);
+  }
+  var dragging = false;
+  function pointerOn() { return on && (mode === 'pointer' || mode === 'denied'); }
+  stage.addEventListener('pointerdown', function (e) {
+    if (!pointerOn()) return;
+    dragging = true; try { stage.setPointerCapture(e.pointerId); } catch (x) {}
+    fromPointer(e);
+  });
+  stage.addEventListener('pointermove', function (e) {
+    if (!pointerOn()) return;
+    if (e.pointerType === 'mouse' || dragging) fromPointer(e);
+  });
+  function release() { if (dragging) { dragging = false; if (pointerOn()) setTarget(0, 0); } }
+  stage.addEventListener('pointerup', release);
+  stage.addEventListener('pointercancel', release);
+  stage.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' && pointerOn()) setTarget(0, 0); });
+
+  draw(0, 0);
+  readout();
+})();
+</script>
+
+</html>
